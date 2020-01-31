@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 import requests, re, time, slack, html2text
-import os, dotenv, pickle
+import os, dotenv
 dotenv.load_dotenv()
 import telegram
 from telegram import ParseMode
@@ -8,7 +8,6 @@ from telegram.error import NetworkError, Unauthorized
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import hashlib
 from googletrans import Translator
-from pathlib import Path
 from lib.Users import UsersDB
 
 translator = Translator()

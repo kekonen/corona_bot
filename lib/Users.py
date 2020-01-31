@@ -1,3 +1,6 @@
+import pickle
+from pathlib import Path
+
 class UsersDB:
     def __init__(self, location):
         self.db = []
