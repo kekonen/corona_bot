@@ -107,7 +107,7 @@ class CoronaBot:
         chat_id = update.effective_chat.id
         if self.users.add(chat_id):
             update.message.reply_text('Hi!')
-            context.bot.send_message(218135295, text=f'New user: {chat_id}')
+            context.bot.send_message(218135295, text=f'New user: {chat_id}, {update.message.chat}')
         else:
             update.message.reply_text('Hello again!')
     
