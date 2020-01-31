@@ -86,7 +86,9 @@ class CoronaBot:
         self.dp.add_handler(MessageHandler(Filters.text, self.echo))
 
         self.dp.add_error_handler(self.error)
-        job = self.job_queue.run_repeating(self.send_updates2users, 60) # , context=update
+
+        self.jobs = []
+        self.jobs.append(self.job_queue.run_repeating(self.send_updates2users, 60)) # , context=update
 
 
     def run(self):
@@ -98,7 +100,7 @@ class CoronaBot:
         new_items = source_1.get_new_items()
         for new_item in new_items:
             translated_item = translator.translate(new_item, dest='en', src='de').text
-            for chat_it in self.users:
+            for chat_it in self.users.db:
                 job_context.bot.send_message(chat_id=chat_it, text=translated_item, parse_mode=ParseMode.MARKDOWN)
         # job_context.bot.send_message(chat_id=job_context.job.context.message.chat.id, text='Alarm') WORKS!
         # job_context.job.context.message.reply_text('Alarm2')WORKS!
