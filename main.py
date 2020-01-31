@@ -9,6 +9,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import hashlib
 from googletrans import Translator
 from lib.Users import UsersDB
+from collections import deque
 
 translator = Translator()
 
@@ -64,7 +65,26 @@ def parse_source_1():
                 results.append(part)
     return results
 
+def parse_source_2():
+    url = 'https://www.merkur.de/welt/coronavirus-gegenmittel-heilung-china-symptome-deutschland-krankheit-australien-homoeopathie-zr-13507549.html'
+
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, features="html.parser")
+    article_html = soup.find(id='id-js-DocumentDetail').prettify(formatter="html")
+    md = html2text.html2text(article_html)
+
+    md = md.split('\n\n')
+    results = []
+    ree = re.compile(r'\*\*[\w\d\.\, \:]+\*\* .+')
+    for part in md:
+        part = part.replace('\n', ' ')
+        if ree.match(part):
+            if part not in results:
+                results.append(part)
+    return results
+
 source_1 = SourceFetcher(parse_source_1)
+source_2 = SourceFetcher(parse_source_2)
 
 class CoronaBot:
     def __init__(self, token):
@@ -74,19 +94,20 @@ class CoronaBot:
         # self.users = []# 218135295
         self.users = UsersDB('./users.pkl')
 
+        self.last_news = deque(maxlen=5)
+
         self.dp = self.updater.dispatcher
 
         self.dp.add_handler(CommandHandler("start", self.start))
         self.dp.add_handler(CommandHandler("stop", self.stop))
         self.dp.add_handler(CommandHandler("help", self.help))
         self.dp.add_handler(CommandHandler("u", self.get_update))
-        self.dp.add_handler(CommandHandler("history", self.get_history))
         self.dp.add_handler(CommandHandler("latest", self.get_latest))
 
         self.dp.add_handler(MessageHandler(Filters.text, self.echo))
 
         self.dp.add_error_handler(self.error)
-
+        
         self.jobs = []
         self.jobs.append(self.job_queue.run_repeating(self.send_updates2users, 60)) # , context=update
 
@@ -97,9 +118,10 @@ class CoronaBot:
         
     def send_updates2users(self, job_context):
         # print('LOLS', context.job.context)
-        new_items = source_1.get_new_items()
+        new_items = source_1.get_new_items() + source_2.get_new_items()
         for new_item in new_items:
             translated_item = translator.translate(new_item, dest='en', src='de').text
+            self.last_news.append(translated_item)
             for chat_it in self.users.db:
                 job_context.bot.send_message(chat_id=chat_it, text=translated_item, parse_mode=ParseMode.MARKDOWN)
         # job_context.bot.send_message(chat_id=job_context.job.context.message.chat.id, text='Alarm') WORKS!
@@ -138,30 +160,26 @@ class CoronaBot:
         """Log Errors caused by Updates."""
         # logger.warning('Update "%s" caused error "%s"', update, context.error)
         print(f'Update "{update}" caused error "{context.error}"')
+        context.bot.send_message(218135295, text=f'error: {context.error}')
+
 
     def get_update(self, update, context):
         """Get update on the virus."""
-        for item in source_1.get_new_items():
+        new_items = source_1.get_new_items() + source_2.get_new_items()
+        for item in new_items:
             translated_item = translator.translate(item, dest='en', src='de').text
             update.message.reply_text(translated_item)
         # update.message.reply_markdown(md)
         
     def get_latest(self, update, context):
         """Get latest update on the virus."""
-        print('Something')
-        item = source_1.get_last()
-        print('Got item', ParseMode.MARKDOWN)
-        if (item):
-            translated_item = translator.translate(item, dest='en', src='de').text
-            context.bot.send_message(update.message.chat.id, text=translated_item, parse_mode=ParseMode.MARKDOWN)
-            # update.message.reply_text(translated_item)
-        else:
-            update.message.reply_text("Sorry, updates are temporary unavailable")
+        for item in self.last_news:
+            context.bot.send_message(update.message.chat.id, text=item, parse_mode=ParseMode.MARKDOWN)
     
-    def get_history(self, update, context):
-        """Get history on the virus."""
-        for item in source_1.get_history():
-            update.message.reply_text(item)
+    # def get_history(self, update, context):
+    #     """Get history on the virus."""
+    #     for item in source_1.get_history():
+    #         update.message.reply_text(item)
 
 
 CoronaBot(os.environ.get('TELEGRAM_TOKEN')).run()
