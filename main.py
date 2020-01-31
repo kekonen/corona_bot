@@ -77,6 +77,7 @@ class CoronaBot:
         self.dp = self.updater.dispatcher
 
         self.dp.add_handler(CommandHandler("start", self.start))
+        self.dp.add_handler(CommandHandler("stop", self.stop))
         self.dp.add_handler(CommandHandler("help", self.help))
         self.dp.add_handler(CommandHandler("u", self.get_update))
         self.dp.add_handler(CommandHandler("history", self.get_history))
