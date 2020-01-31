@@ -90,7 +90,6 @@ class CoronaBot:
         """Get update on the virus."""
         new_items = source_1.get_all_items() + source_2.get_all_items()
         for item in new_items:
-            # translated_item = translator.translate(item, dest='en', src='de').text
             update.message.reply_text(item)
         
     def get_latest(self, update, context):
