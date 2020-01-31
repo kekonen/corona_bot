@@ -1,87 +1,15 @@
-from bs4 import BeautifulSoup
-import requests, re, time, slack, html2text
 import os, dotenv
-dotenv.load_dotenv()
 import telegram
 from telegram import ParseMode
 from telegram.error import NetworkError, Unauthorized
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import hashlib
 from googletrans import Translator
 from lib.Users import UsersDB
 from collections import deque
+from lib.Sources import SourceFetcher, parse_source_1, parse_source_2
+dotenv.load_dotenv()
 
 translator = Translator()
-
-def md5(s):
-    return hashlib.md5(s.encode('utf-8')).hexdigest()
-
-class SourceFetcher:
-    def __init__(self, parse_function):
-        self.parse_function = parse_function
-        # self.history = [md5(item) for item in self.get_all_items()]
-        self.history = self.get_all_items()
-
-    def get_all_items(self):
-        return self.parse_function()[::-1]
-    
-    def get_new_items(self):
-        result = []
-        for item in self.get_all_items():
-            # md5_item = md5(item)
-            # if md5_item not in self.history:
-            #     self.history.append(md5_item)
-            #     result.append(item)
-            if item not in self.history:
-                self.history.append(item)
-                result.append(item)
-        return result
-    
-    def get_history(self):
-        return self.history
-    
-    def get_last(self):
-        print(len(self.history))
-        if len(self.history) > 0:
-            return self.history[-1]
-
-
-def parse_source_1():
-    url = 'https://www.merkur.de/welt/coronavirus-deutschland-merkel-china-bayern-was-ist-symptome-infektion-news-muenchen-zr-13500123.html'
-    # https://www.merkur.de/welt/coronavirus-gegenmittel-heilung-china-symptome-deutschland-krankheit-australien-homoeopathie-zr-13507549.html
-
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, features="html.parser")
-    article_html = soup.find(id='id-js-DocumentDetail').prettify(formatter="html")
-    md = html2text.html2text(article_html)
-
-    md = md.split('\n\n')
-    results = []
-    ree = re.compile(r'\*\*.+[\d\.]+ Uhr:\*\* .+')
-    for part in md:
-        part = part.replace('\n', ' ')
-        if ree.match(part):
-            if part not in results:
-                results.append(part)
-    return results
-
-def parse_source_2():
-    url = 'https://www.merkur.de/welt/coronavirus-gegenmittel-heilung-china-symptome-deutschland-krankheit-australien-homoeopathie-zr-13507549.html'
-
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, features="html.parser")
-    article_html = soup.find(id='id-js-DocumentDetail').prettify(formatter="html")
-    md = html2text.html2text(article_html)
-
-    md = md.split('\n\n')
-    results = []
-    ree = re.compile(r'\*\*[\w\d\.\, \:]+\*\* .+')
-    for part in md:
-        part = part.replace('\n', ' ')
-        if ree.match(part):
-            if part not in results:
-                results.append(part)
-    return results
 
 source_1 = SourceFetcher(parse_source_1)
 source_2 = SourceFetcher(parse_source_2)
@@ -91,7 +19,6 @@ class CoronaBot:
         self.updater = Updater(token, use_context=True)
         self.job_queue = self.updater.job_queue
 
-        # self.users = []# 218135295
         self.users = UsersDB('./users.pkl')
 
         self.last_news = deque(maxlen=5)
@@ -111,13 +38,11 @@ class CoronaBot:
         self.jobs = []
         self.jobs.append(self.job_queue.run_repeating(self.send_updates2users, 60)) # , context=update
 
-
     def run(self):
         self.updater.start_polling()
         self.updater.idle()
         
     def send_updates2users(self, job_context):
-        # print('LOLS', context.job.context)
         new_items = source_1.get_new_items() + source_2.get_new_items()
         for new_item in new_items:
             translated_item = translator.translate(new_item, dest='en', src='de').text
@@ -158,33 +83,19 @@ class CoronaBot:
 
     def error(self, update, context):
         """Log Errors caused by Updates."""
-        # logger.warning('Update "%s" caused error "%s"', update, context.error)
         print(f'Update "{update}" caused error "{context.error}"')
         context.bot.send_message(218135295, text=f'error: {context.error}')
 
-
     def get_update(self, update, context):
         """Get update on the virus."""
-        new_items = source_1.get_new_items() + source_2.get_new_items()
+        new_items = source_1.get_all_items() + source_2.get_all_items()
         for item in new_items:
-            translated_item = translator.translate(item, dest='en', src='de').text
-            update.message.reply_text(translated_item)
-        # update.message.reply_markdown(md)
+            # translated_item = translator.translate(item, dest='en', src='de').text
+            update.message.reply_text(item)
         
     def get_latest(self, update, context):
         """Get latest update on the virus."""
         for item in self.last_news:
             context.bot.send_message(update.message.chat.id, text=item, parse_mode=ParseMode.MARKDOWN)
     
-    # def get_history(self, update, context):
-    #     """Get history on the virus."""
-    #     for item in source_1.get_history():
-    #         update.message.reply_text(item)
-
-
 CoronaBot(os.environ.get('TELEGRAM_TOKEN')).run()
-
-# def get_last_update():
-#     r = requests.get(url)
-#     soup = BeautifulSoup(r.text, features="html.parser")
-#     return list(filter(lambda x: re.match(r'\d{2}\.\d{2} Uhr\:', x.strip()), [x.replace('\xa0', '') for x in soup.findAll(text=True)]))[0]
