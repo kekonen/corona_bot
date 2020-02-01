@@ -89,7 +89,7 @@ class CoronaBot:
 
     def get_update(self, update, context):
         """Get update on the virus."""
-        new_items = source_1.get_all_items() + source_2.get_all_items()
+        new_items = source_1.get_all_items()[-2:] + source_2.get_all_items()[-2:] + source_3.get_new_items()[-2:]
         for item in new_items:
             update.message.reply_text(item)
         
