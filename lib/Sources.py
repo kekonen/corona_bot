@@ -60,3 +60,21 @@ def parse_source_2():
             if part not in results:
                 results.append(part)
     return results
+
+def parse_source_3():
+    url = 'https://www.merkur.de/welt/coronavirus-deutsche-aus-wuhan-auf-rueckflug-zr-13451287.html'
+
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, features="html.parser")
+    article_html = soup.find(id='id-js-DocumentDetail').prettify(formatter="html")
+    md = html2text.html2text(article_html)
+
+    md = md.split('\n\n')
+    results = []
+    ree = re.compile(r'\*\*[\w\d\.\, \:]+\*\* .+')
+    for part in md:
+        part = part.replace('\n', ' ')
+        if ree.match(part):
+            if part not in results:
+                results.append(part)
+    return results

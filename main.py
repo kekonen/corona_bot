@@ -6,13 +6,14 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from googletrans import Translator
 from lib.Users import UsersDB
 from collections import deque
-from lib.Sources import SourceFetcher, parse_source_1, parse_source_2
+from lib.Sources import SourceFetcher, parse_source_1, parse_source_2, parse_source_3
 dotenv.load_dotenv()
 
 translator = Translator()
 
 source_1 = SourceFetcher(parse_source_1)
 source_2 = SourceFetcher(parse_source_2)
+source_3 = SourceFetcher(parse_source_3)
 
 class CoronaBot:
     def __init__(self, token):
@@ -43,7 +44,7 @@ class CoronaBot:
         self.updater.idle()
         
     def send_updates2users(self, job_context):
-        new_items = source_1.get_new_items() + source_2.get_new_items()
+        new_items = source_1.get_new_items() + source_2.get_new_items() + source_3.get_new_items()
         for new_item in new_items:
             translated_item = translator.translate(new_item, dest='en', src='de').text
             self.last_news.append(translated_item)
